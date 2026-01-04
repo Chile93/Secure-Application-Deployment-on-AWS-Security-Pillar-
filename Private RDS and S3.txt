@@ -1,0 +1,58 @@
+Step 1: Create RDS Subnet Group
+
+
+1. Create Subnet Group
+Go to Aurora and RDS → Subnet groups
+Click Create DB subnet groupName: securecart-db-subnet-group
+Description: Subnet group for private RDS
+VPC: securecart-vpc
+Add Private Subnet 1 and Private Subnet 2
+Select the correct Availability Zones
+
+2. Launch RDS Instance
+Go to RDS → Databases → Create database
+Select Standard Create
+Engine: MySQL or PostgreSQL
+Templates: free tier
+DB instance identifier: securecart-db
+
+Credentials: Set a master username and password (store securely)
+DB instance size: Choose free-tier (db.t3.micro) if available
+Storage: Use General Purpose (gp2), use default storage
+
+Connectivity:
+VPC: securecart-vpc
+Subnet Group: securecart-db-subnet-group
+Public Access: NO
+VPC security group: Create new security group or use existing (see next step)
+
+
+3. Configure RDS Security Group
+You need to allow traffic only from EC2 inside your private subnet.
+Go to EC2 → Security Groups → Create security group
+Name: rds-ec2-access
+Description: Allow traffic only from EC2
+VPC: securecart-vpc
+Inbound rule:
+Type: MySQL/Aurora
+Source: Security group of private EC2 instance (You can find it in your private EC2 instance > Security tab)
+Outbound rule: Allow all (default)
+Click Create Database.
+
+
+Step 2: Create Secure S3 Bucket
+Go to S3 Dashboard → Click Create bucket
+Bucket name: securecart-assets
+Region: Same as your app resources (e.g., us-east-1)
+Leave all other options as default → Click Create bucket
+Upload Static Assets
+Click on the newly created bucket securecart-assets
+Go to the Objects tab → Click Upload
+Add any test files (e.g., an image like test-image.jpg)
+Click Upload
+Files will be private by default.
+Verify Bucket Access is Private
+After upload, click on the file name (e.g., test-image.jpg)
+Copy the Object URL
+Open it in a new incognito/private browser tab
+You should see Access Denied, confirming the bucket is private

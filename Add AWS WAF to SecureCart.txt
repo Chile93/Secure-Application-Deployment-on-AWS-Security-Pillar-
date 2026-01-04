@@ -1,0 +1,36 @@
+Step 1: Create a Web ACL (Access Control List)
+
+
+Go to AWS WAF & Shield Console
+Click Create web ACL
+Name: securecart-waf-acl
+Region: us-east-1
+Click Add AWS Resources
+Resource type: Application Load Balancer
+Associate to ALB: Select your ALB (securecart-alb)
+
+Click Next
+
+Step 2: Add Managed Rule Groups
+Under Add rules and rule groups:
+Choose Add managed rule groups
+You'll see rule groups offered by:
+AWS (free, built-in)
+Third-party vendors (e.g., F5, Fortinet, Cloudbric — may incur extra costs)
+Select the following free AWS managed rule groups:
+Core rule set (AWSManagedRulesCommonRuleSet)
+Known bad inputs (AWSManagedRulesKnownBadInputsRuleSet)
+SQL database (AWSManagedRulesSQLiRuleSet)
+
+Click Add rules > Click Next
+
+Step 3: Set Default Action
+Default action: Allow > Click Next
+Requests not blocked by rules are forwarded to the ALB
+
+
+Step 4: Review and Create
+Skip ‘set rule priority’ and ‘configure metrics’ section > Click Next
+Review settings
+Click Create Web ACL
+WAF is now active and protecting your app via the ALB.

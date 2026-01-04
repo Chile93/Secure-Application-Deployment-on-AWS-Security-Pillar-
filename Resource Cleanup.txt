@@ -1,0 +1,47 @@
+Resource Clean-up
+To avoid unnecessary charges, clean up all the AWS resources you created during the project.
+
+1. Terminate EC2 Instances
+
+Go to EC2 Dashboard
+Select both your app and bastion instances
+Click Actions > Instance State > Terminate
+2. Delete the ALB (Application Load Balancer)
+
+Go to EC2 > Load Balancers
+Select securecart-alb and delete it
+3. Delete Target Group
+
+Go to EC2 > Target Groups
+Select securecart-tg and delete it
+4. Delete RDS Database
+
+Go to RDS Dashboard
+Select your DB instance → Actions > Delete
+Choose Do not create final snapshot (since this is a test project)
+5. Delete DB Subnet Group
+
+Go to RDS > Subnet Groups
+Delete securecart-db-subnet-group
+6. Delete S3 Bucket
+
+Go to S3 Dashboard
+Empty securecart-assets → Then delete the bucket
+7. Delete NAT Gateway
+
+Go to VPC > NAT Gateways
+Select and delete the NAT Gateway
+8. Release Elastic IP (if used)
+
+Go to EC2 > Elastic IPs
+Select and Release the address
+9. Remove Networking Components
+
+Go to VPC Dashboard
+Delete:
+All subnets
+Custom route tables
+Internet Gateway
+10. Delete the VPC
+
+Once everything above is removed, delete your securecart-vpc

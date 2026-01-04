@@ -1,0 +1,161 @@
+Step 1: Launch an EC2 Instance (Public Access)
+
+
+Launch Configuration
+Navigate to the EC2 Dashboard → Launch Instance
+Instance details:
+Name: secure-cart-app
+AMI: Amazon Linux 2 or Amazon Linux 2023 (both supported)
+Instance type: t2.micro (Free Tier eligible)
+Key pair: Create and download a new key pair (.pem file) for SSH access
+Network settings:
+VPC: Use the default VPC
+Auto-assign public IP: Enable this option
+Security Group settings - Add these inbound rules:
+SSH (port 22) → Source: 0.0.0.0/0 (Vulnerability: Open to the world)
+HTTP (port 80) → Source: 0.0.0.0/0
+Keep other settings as default and Launch Instance
+
+
+Step 2: Install Node.js and Run the Application
+
+
+Connect to Your Instance
+
+ssh -i your-key.pem ec2-user@<your-ec2-public-ip>
+
+Install Node.js (using nvm):
+
+curl -o- <https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh> | bash
+export NVM_DIR="$HOME/.nvm"
+source "$NVM_DIR/nvm.sh"
+nvm install 18
+nvm use 18
+
+
+Create the SecureCart Application
+mkdir securecart && cd securecart
+mkdir public
+
+cat <<EOF > public/index.html
+<!DOCTYPE html>
+<html>
+<head><title>SecureCart</title></head>
+<body><h1>Welcome to SecureCart</h1><p>Insecure Demo Page</p></body>
+</html>
+EOF
+
+cat <<EOF > server.js
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const server = http.createServer((req, res) => {
+  const filePath = path.join(__dirname, 'public', req.url === '/' ? 'index.html' : req.url);
+  fs.readFile(filePath, (err, content) => {
+    if (err) {
+      res.writeHead(404); res.end('Not Found');
+    } else {
+      res.writeHead(200); res.end(content);
+    }
+  });
+});
+server.listen(80);
+EOF
+
+
+
+Start the Application
+# Get the full path to Node.js
+which node
+
+# Copy the output path (e.g., /home/ec2-user/.nvm/versions/node/v18.x.x/bin/node) Make sure to replace "v18.x.x" with your actual node version.
+
+# Start the server using the full path (& makes sure the task runs on background to keep terminal functional for operations)
+sudo /home/ec2-user/.nvm/versions/node/v18.x.x/bin/node server.js &
+
+
+Test Your Application
+Open your browser and navigate to:
+http://<your-ec2-public-ip>
+You should see the SecureCart insecure demo page displaying current vulnerabilities
+
+
+
+Step 3: Deploy a Public RDS Instance
+
+
+Navigate to Auroa and RDS Dashboard → Create Database
+Engine options:
+Creation method: Standard Create
+Engine: MySQL
+Template: Free Tier
+
+Settings:
+DB instance identifier: securecart-db
+Master username: admin
+Set a simple password (for example, Password123!)
+
+Connectivity(Critical Security Issues):
+VPC: Default VPC
+Public access: YES (Major vulnerability - never do this in production)
+VPC security group: Create new or use existing
+
+Security Group Configuration:
+Edit the security group to add:
+Inbound rule: MySQL/Aurora (port 3306) from 0.0.0.0/0
+
+Launch the database.
+Security Issues Identified:
+Critical Vulnerabilities in this configuration:
+
+Public internet exposure: Database is accessible from anywhere on the internet
+Weak authentication: Simple password with no MFA
+No encryption: Data transmitted and stored without encryption
+Overly permissive access: Security group allows global access instead of specific IP ranges
+
+
+
+
+Step 4: Create a Public S3 Bucket
+
+
+Create Bucket with Poor Security
+Navigate to S3 Dashboard → Create Bucket
+Name the bucket: securecart-insecure-demo.
+Choose the same region as your EC2 instance.
+Under Block Public Access settings:
+Uncheck Block all public access
+Acknowledge the warning prompt
+Create the bucket.
+
+2. Upload a Sample File
+Click into your newly created bucket → Upload tab
+Upload a sample file, such as logo.jpg, and click Upload
+
+3. Apply Dangerous Bucket Policy
+Go to the Permissions tab of the bucket.
+Scroll to Bucket Policy → click Edit
+Paste the following policy and save (Modify the resource value accordingly to your bucket name):
+
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowPublicReadAccessToObjects",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::securecart-insecure-demo/*"
+    }
+  ]
+}
+
+
+
+4. Verify Public Access
+Go back to the uploaded object (logo.jpg)
+Copy the Object URL (visible at the top)
+Open it in an incognito/private browser window
+The file should be accessible without any authentication:
+https://securecart-insecure-demo.s3.<region>.amazonaws.com/logo.jpg

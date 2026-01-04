@@ -1,0 +1,134 @@
+Step 1: Create a Custom VPC
+
+VPC Configuration
+Go to the VPC Dashboard → Create VPC
+VPC Settings:
+Resource to create: VPC only
+Name tag: securecart-vpc
+IPv4 CIDR block: 10.0.0.0/16
+IPv6 CIDR block: No IPv6 CIDR block
+Tenancy: Default
+Click Create VPC
+
+
+Step 2: Create Public and Private Subnets
+
+Create Subnets
+Navigate to Subnets → Create Subnet
+Select VPC: Choose securecart-vpc
+Create each subnet with the specifications above: For public-subnet-1:
+Subnet name: public-subnet-1
+Availability Zone: us-east-1a
+IPv4 CIDR block: 10.0.1.0/24
+
+For public-subnet-2:
+Subnet name: public-subnet-2
+Availability Zone: us-east-1b
+IPv4 CIDR block: 10.0.3.0/24
+
+For private-subnet-1:
+Subnet name: private-subnet-1
+Availability Zone: us-east-1a
+IPv4 CIDR block: 10.0.2.0/24
+
+For private-subnet-2:
+Subnet name: private-subnet-2
+Availability Zone: us-east-1b
+IPv4 CIDR block: 10.0.4.0/24
+
+Click Create subnet for each
+
+
+Configure Public IP Assignment
+Select public-subnet-1 → Actions → Edit subnet settings
+Check Enable auto-assign public IPv4 address
+Click Save
+Repeat for public-subnet-2
+
+
+Step 3: Set Up Internet Gateway and NAT Gateway
+Internet Gateway Setup
+Navigate to Internet Gateways → Create Internet Gateway
+Configuration:
+Name tag: securecart-igw
+Click Create Internet Gateway
+
+Attach to VPC:
+Select the newly created gateway
+Click Actions → Attach to VPC
+Select securecart-vpc
+Click Attach Internet Gateway
+
+
+NAT Gateway Setup
+
+Allocate Elastic IP Address
+Context: NAT Gateways require a static public IP address (Elastic IP) to maintain consistent outbound connectivity.
+Navigate to EC2 Dashboard → Elastic IPs (under Network & Security)
+Click Allocate Elastic IP address
+Configuration:
+Public IPv4 address pool: Amazon's pool of IPv4 addresses
+Network Border Group: Default
+Click Allocate
+Note the Allocation ID for the next step
+
+Create NAT Gateway
+Navigate to VPC Dashboard → NAT Gateways
+Click Create NAT Gateway
+Configuration:
+Name: securecart-nat
+Subnet: Select public-subnet-1 (NAT Gateway must be in a public subnet)
+Connectivity type: Public
+Elastic IP allocation ID: Select the Elastic IP you just created
+Click Create NAT Gateway
+
+
+
+Step 4: Create Route Tables
+
+Public Route Table Configuration
+Navigate to Route Tables → Create Route Table
+Configuration:
+Name: public-rt
+VPC: securecart-vpc
+Click Create route table
+
+Add Internet Route:
+Select the newly created route table
+Go to Routes tab → Edit routes
+Click Add route
+Destination: 0.0.0.0/0 (all internet traffic)
+Target: Internet Gateway → Select securecart-igw
+Click Save changes
+
+
+Associate Public Subnets:
+Go to Subnet associations tab → Edit subnet associations
+Select both public subnets:
+public-subnet-1
+public-subnet-2
+Click Save associations
+
+
+Private Route Table Configuration
+
+Navigate to Route Tables → Create Route Table
+Configuration:
+Name: private-rt
+VPC: securecart-vpc
+Click Create route table
+
+Add NAT Gateway Route:
+Select the newly created route table
+Go to Routes tab → Edit routes
+Click Add route
+Destination: 0.0.0.0/0 (all internet traffic)
+Target: NAT Gateway → Select securecart-nat
+Click Save changes
+
+Associate Private Subnets:
+Go to Subnet associations tab → Edit subnet associations
+Select both private subnets:
+private-subnet-1
+private-subnet-2
+Click Save associations

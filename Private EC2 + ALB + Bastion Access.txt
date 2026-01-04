@@ -1,0 +1,184 @@
+Step 1: Launch EC2 Instance in Private Subnet
+
+Go to EC2 Dashboard → Launch Instance
+Name: securecart-app
+Choose Amazon Linux 2023, t2.micro
+Scroll down to the Network Settings section > Click Edit:
+VPC: Select securecart-vpc
+Subnet: Choose private-subnet-1
+Auto-assign public IP: Select Disable
+Click Edit security groups → Create a new security group
+Security group name: app-sg
+Description: Allow HTTP traffic from ALB only
+Leave the outbound rule as default:
+Allows all outbound traffic (this is required for EC2 to access the internet via the NAT Gateway)
+Click Launch Instance
+
+
+Step 2: Create Application Load Balancer (ALB)
+Go to the EC2 Dashboard → In the left menu, click Load Balancers → Click Create Load Balancer → Select Application Load Balancer. 
+Configure Load Balancer Basics:
+Name: securecart-alb
+Scheme: Internet-facing
+IP address type: IPv4
+Network mapping:
+VPC: Select securecart-vpc
+Mappings (Availability Zones):
+Check us-east-1a → select public-subnet-1
+Check us-east-1b → select public-subnet-2
+Click Next
+
+Configure Security Group:
+Choose Create a new security group
+Name: alb-sg
+Description: Allow HTTP traffic to ALB
+VPC: securecart-vpc
+Add Inbound rule:
+Type: HTTP
+Port: 80
+Source: 0.0.0.0/0 (allows public access to ALB)
+Leave the Outbound rule as default (all traffic allowed)
+Click Create Security Group, head back to load balancer configuration page.
+
+Configure Listener and Routing:
+Protocol: HTTP
+Port: 80
+Default action: Forward to a target group
+Click Create a new target group:
+Name: securecart-tg
+Target type: Instance
+Protocol: HTTP
+Port: 80
+VPC: securecart-vpc
+
+Click Next
+Register Targets:
+On the "Register targets" page:
+Select your EC2 instance (securecart-app)
+Click Include as pending below
+
+Click Next
+Register Targets:
+On the "Register targets" page:
+Select your EC2 instance (securecart-app)
+Click Include as pending below
+
+Review all configuration
+Click Create Load Balancer
+
+
+Step 3: Update Security Group of EC2 to Allow ALB
+Go to the EC2 Dashboard → In the left menu, click Security Groups
+Find and click on the security group for your EC2 instance (usually app-sg)
+Go to the Inbound rules tab → Click Edit inbound rules
+
+Click Add rule:
+Type: HTTP
+Port: 80
+Source: Custom → In the dropdown, select alb-sg (your ALB security group)
+This ensures that only the ALB can send traffic to your EC2 instance.
+Click Save rules
+
+
+
+Step 4: Launch Bastion Host in Public Subnet
+
+Go to EC2 Dashboard → Click Launch Instance
+Name: bastion-host
+Choose Amazon Linux 2023, t2.micro
+Choose an existing key pair or create a new one
+Configure Network Settings:
+VPC: securecart-vpc
+Subnet: public-subnet-1
+Auto-assign Public IP: Enable (default)
+
+Create security group:
+Name: bastion-sg
+Inbound Rule:
+Type: SSH
+Port: 22
+Source: My IP
+Outbound Rule: Leave as Allow all
+Click Launch Instance
+
+2. Update App EC2 Security Group to Allow SSH from Bastion
+
+Go to EC2 Dashboard → Security Groups
+Find app-sg and click on it
+Go to Inbound rules → Edit inbound rules
+Add:
+Type: SSH
+Port: 22
+Source: Custom → Select bastion-sg
+
+
+
+Step 5: SSH into App EC2 via Bastion Host
+
+scp -i ~/Downloads/scrt.pem ~/Downloads/scrt.pem ec2-user@<Bastion_Public_IP>:/home/ec2-user/
+
+ssh -i ~/Downloads/scrt.pem ec2-user@<Bastion_Public_IP>
+
+chmod 400 scrt.pem
+ssh -i scrt.pem ec2-user@<Private_IP_of_app_instance>
+
+
+
+Step 6: Install Node.js App on Private EC2
+
+# Download and run the NVM (Node Version Manager) installation script
+curl -o- <https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh> | bash
+
+# Load NVM into your shell session
+export NVM_DIR="$HOME/.nvm"
+source "$NVM_DIR/nvm.sh"
+
+# Install Node.js version 18
+nvm install 18
+
+# Use Node.js version 18 for the current shell
+nvm use 18
+
+Create the App Folder and Files
+# Create a project folder and navigate into it
+mkdir securecart && cd securecart
+
+# Create a public directory for static files
+mkdir public
+
+Create a Simple HTML Page
+cat <<EOF > public/index.html
+<!DOCTYPE html>
+<html><head><title>SecureCart</title></head>
+<body><h1>SecureCart - Production</h1><p>Served from private EC2</p></body>
+</html>
+EOF
+
+Create the Node.js Server
+cat <<EOF > server.js
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const server = http.createServer((req, res) => {
+  const filePath = path.join(__dirname, 'public', req.url === '/' ? 'index.html' : req.url);
+  fs.readFile(filePath, (err, content) => {
+    if (err) { res.writeHead(404); res.end('Not Found'); }
+    else { res.writeHead(200); res.end(content); }
+  });
+});
+server.listen(80, '0.0.0.0');
+EOF
+
+
+
+Start the Server
+First, get the full path to the Node binary:
+which node
+You’ll get a path like:
+/home/ec2-user/.nvm/versions/node/v18.x.x/bin/node
+Now, use that full path to run the server in the background:
+sudo /home/ec2-user/.nvm/versions/node/v18.x.x/bin/node server.js &
+
+Test the App via ALB
+Go to EC2 Dashboard → Load Balancers
+Copy the DNS name of your ALB (e.g., securecart-alb-123456789.us-east-1.elb.amazonaws.com)
